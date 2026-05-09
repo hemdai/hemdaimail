@@ -1,6 +1,7 @@
 mod auth;
 mod db;
 mod mail;
+mod realtime;
 
 use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
@@ -14,6 +15,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(|| async { "Webmail API is running" }))
+        .route("/ws", get(realtime::ws_handler))
         .route("/auth/register", post(auth::register_user))
         .route("/auth/login", post(auth::login_user))
         .route("/mailboxes", get(mail::list_mailboxes))

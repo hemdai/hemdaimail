@@ -25,20 +25,26 @@ where
     type Rejection = (StatusCode, String);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let auth_header = parts.headers
+        let token = if let Some(auth_header) = parts.headers
             .get("Authorization")
             .and_then(|h| h.to_str().ok())
-            .ok_or((StatusCode::UNAUTHORIZED, "Missing Authorization header".to_string()))?;
+        {
+            if !auth_header.starts_with("Bearer ") {
+                return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header".to_string()));
+            }
+            auth_header[7..].to_string()
+        } else {
+            // Try to get token from query parameter
+            parts.uri.query()
+                .and_then(|q| q.split('&').find(|p| p.starts_with("token=")))
+                .map(|p| p[6..].to_string())
+                .ok_or((StatusCode::UNAUTHORIZED, "Missing authentication".to_string()))?
+        };
 
-        if !auth_header.starts_with("Bearer ") {
-            return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header".to_string()));
-        }
-
-        let token = &auth_header[7..];
         let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
         let token_data = decode::<Claims>(
-            token,
+            &token,
             &DecodingKey::from_secret(secret.as_bytes()),
             &Validation::default(),
         ).map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid token".to_string()))?;

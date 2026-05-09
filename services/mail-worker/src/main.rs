@@ -119,6 +119,14 @@ async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id
                 created_at: Utc::now().to_rfc3339(),
             })?;
 
+            // Publish Real-time Event
+            queue.publish_event(user_id, "NEW_MESSAGE", serde_json::json!({
+                "id": message_id,
+                "subject": processed.subject,
+                "sender": processed.from,
+                "snippet": processed.body_text.as_ref().map(|b| b.chars().take(100).collect::<String>()),
+            }))?;
+
             sqlx::query!(
                 "UPDATE mailboxes SET last_uid_next = $1 WHERE id = $2",
                 uid as i64,

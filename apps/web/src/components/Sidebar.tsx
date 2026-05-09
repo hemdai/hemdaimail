@@ -18,13 +18,16 @@ const navItems = [
   { icon: Archive, label: "Archive", href: "/archive" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onCompose }: { onCompose: () => void }) {
   const pathname = usePathname();
 
   return (
     <aside className="w-64 flex flex-col h-[calc(100vh-64px)] bg-white py-4 overflow-y-auto">
       <div className="px-4 mb-4">
-        <button className="flex items-center gap-3 bg-blue-100 hover:bg-blue-200 text-blue-900 px-6 py-4 rounded-2xl shadow-sm transition-all font-medium">
+        <button 
+          onClick={onCompose}
+          className="flex items-center gap-3 bg-blue-100 hover:bg-blue-200 text-blue-900 px-6 py-4 rounded-2xl shadow-sm transition-all font-medium"
+        >
           <Plus className="w-6 h-6" />
           <span>Compose</span>
         </button>

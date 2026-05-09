@@ -50,4 +50,15 @@ impl Queue {
         let _: () = conn.lpush("search_indexing_tasks", json)?;
         Ok(())
     }
+
+    pub fn publish_event(&self, user_id: Uuid, event_type: &str, payload: serde_json::Value) -> Result<(), Box<dyn Error>> {
+        let mut conn = self.client.get_connection()?;
+        let channel = format!("user_events:{}", user_id);
+        let event = serde_json::json!({
+            "type": event_type,
+            "payload": payload
+        });
+        let _: () = conn.publish(channel, event.to_string())?;
+        Ok(())
+    }
 }

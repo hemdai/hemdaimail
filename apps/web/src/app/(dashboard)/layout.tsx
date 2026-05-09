@@ -2,9 +2,10 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import ComposeModal from "@/components/ComposeModal";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { token, isLoading } = useAuth();
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -34,11 +36,12 @@ export default function DashboardLayout({
     <div className="flex flex-col min-h-screen bg-white">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <Sidebar onCompose={() => setIsComposeOpen(true)} />
         <main className="flex-1 overflow-auto bg-gray-50 rounded-tl-2xl border-t border-l border-gray-200">
           {children}
         </main>
       </div>
+      {isComposeOpen && <ComposeModal onClose={() => setIsComposeOpen(false)} />}
     </div>
   );
 }
