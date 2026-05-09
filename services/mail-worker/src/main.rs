@@ -10,11 +10,12 @@ use tokio::time::sleep;
 use sqlx::PgPool;
 use crate::imap::{ImapClient, fetch_new_messages, sync_mailboxes};
 use crate::imap::processor::process_raw_message;
-use crate::queue::Queue;
+use crate::queue::{Queue, IndexingTask};
 use crate::storage::Storage;
 use uuid::Uuid;
 use std::env;
 use std::error::Error;
+use chrono::Utc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -40,7 +41,7 @@ async fn run_worker_loop(pool: PgPool, queue: Queue, storage: Storage) -> Result
         match queue.pop_sync_task() {
             Ok(Some(task)) => {
                 tracing::info!("Processing sync task for user {}", task.user_id);
-                if let Err(e) = sync_user_mail(&pool, &storage, task.user_id).await {
+                if let Err(e) = sync_user_mail(&pool, &storage, &queue, task.user_id).await {
                     tracing::error!("Failed to sync user {}: {}", task.user_id, e);
                 }
             }
@@ -55,7 +56,7 @@ async fn run_worker_loop(pool: PgPool, queue: Queue, storage: Storage) -> Result
     }
 }
 
-async fn sync_user_mail(pool: &PgPool, storage: &Storage, user_id: Uuid) -> Result<(), Box<dyn Error>> {
+async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id: Uuid) -> Result<(), Box<dyn Error>> {
     tracing::info!("Syncing mail for user {}", user_id);
 
     let creds = sqlx::query!(
@@ -98,18 +99,25 @@ async fn sync_user_mail(pool: &PgPool, storage: &Storage, user_id: Uuid) -> Resu
         for (uid, raw_mime) in new_messages {
             let processed = process_raw_message(&raw_mime)?;
             
-            // Upload raw MIME to S3
             let message_id_key = processed.message_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
             let s3_key = storage.upload_raw_mime(&message_id_key, raw_mime).await?;
 
-            // Save to Database
             let message_id = db_ops::save_message(pool, user_id, mailbox.id, uid, processed.clone(), s3_key).await?;
             
-            // Upload Attachments
             for attachment in processed.attachments {
                 let attachment_key = storage.upload_attachment(&message_id_key, &attachment.filename, attachment.content.clone()).await?;
                 db_ops::save_attachment(pool, message_id, &attachment.filename, &attachment.content_type, attachment.size, &attachment_key).await?;
             }
+
+            // Push to Search Indexing Queue
+            queue.push_indexing_task(IndexingTask {
+                message_id,
+                user_id,
+                subject: processed.subject.clone(),
+                sender: processed.from.clone().unwrap_or_default(),
+                body_text: processed.body_text.clone(),
+                created_at: Utc::now().to_rfc3339(),
+            })?;
 
             sqlx::query!(
                 "UPDATE mailboxes SET last_uid_next = $1 WHERE id = $2",

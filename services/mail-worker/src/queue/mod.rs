@@ -1,6 +1,18 @@
-use redis::{Client, Commands, Connection};
+use redis::{Client, Commands};
 use std::error::Error;
 use crate::models::tasks::SyncTask;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexingTask {
+    pub message_id: Uuid,
+    pub user_id: Uuid,
+    pub subject: Option<String>,
+    pub sender: String,
+    pub body_text: Option<String>,
+    pub created_at: String,
+}
 
 pub struct Queue {
     client: Client,
@@ -30,5 +42,12 @@ impl Queue {
             }
             None => Ok(None),
         }
+    }
+
+    pub fn push_indexing_task(&self, task: IndexingTask) -> Result<(), Box<dyn Error>> {
+        let mut conn = self.client.get_connection()?;
+        let json = serde_json::to_string(&task)?;
+        let _: () = conn.lpush("search_indexing_tasks", json)?;
+        Ok(())
     }
 }
