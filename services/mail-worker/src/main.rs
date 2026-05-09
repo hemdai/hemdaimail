@@ -4,6 +4,7 @@ mod imap;
 mod models;
 mod queue;
 mod storage;
+mod observability;
 
 use std::time::Duration;
 use tokio::time::sleep;
@@ -16,11 +17,29 @@ use uuid::Uuid;
 use std::env;
 use std::error::Error;
 use chrono::Utc;
+use axum::{routing::get, Router};
+use std::net::SocketAddr;
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt::init();
+    observability::init_observability("mail-worker");
+
+    let recorder_handle = PrometheusBuilder::new()
+        .install_recorder()
+        .expect("failed to install recorder");
+
+    // Start Health/Metrics Server
+    let health_router = Router::new()
+        .route("/health", get(|| async { "OK" }))
+        .route("/metrics", get(move || async move { recorder_handle.render() }));
+    
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
+    tokio::spawn(async move {
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        axum::serve(listener, health_router).await.unwrap();
+    });
 
     tracing::info!("Mail worker starting...");
 

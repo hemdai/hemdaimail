@@ -10,7 +10,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dotenv = "0.15"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 redis = { version = "0.24", features = ["tokio-comp"] }
@@ -20,3 +20,11 @@ async-native-tls = "0.5"
 mailparse = "0.14"
 aws-config = "1.1"
 aws-sdk-s3 = "1.17"
+axum = "0.7"
+opentelemetry = { version = "0.21", features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.14", features = ["tonic", "tokio"] }
+tracing-opentelemetry = "0.22"
+tonic = "0.10"
+metrics = "0.22"
+metrics-exporter-prometheus = "0.12"
