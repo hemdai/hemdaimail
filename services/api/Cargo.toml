@@ -27,3 +27,7 @@ tracing-opentelemetry = "0.22"
 tonic = "0.10"
 metrics = "0.22"
 metrics-exporter-prometheus = "0.12"
+tower_governor = "0.4"
+ammonia = "3.3"
+axum-extra = { version = "0.9", features = ["cookie"] }
+rand = "0.8"

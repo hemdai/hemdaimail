@@ -7,6 +7,8 @@ mod observability;
 use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
 use metrics_exporter_prometheus::PrometheusBuilder;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -17,18 +19,48 @@ async fn main() {
         .install_recorder()
         .expect("failed to install recorder");
 
+    // Rate Limiting Config
+    let general_governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(10)
+            .burst_size(20)
+            .finish()
+            .unwrap(),
+    );
+
+    let auth_governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(5)
+            .finish()
+            .unwrap(),
+    );
+
     let pool = db::connect_db().await;
+
+    let auth_routes = Router::new()
+        .route("/register", post(auth::register_user))
+        .route("/login", post(auth::login_user))
+        .route("/refresh", post(auth::refresh_token))
+        .layer(GovernorLayer {
+            config: auth_governor_config,
+        });
+
+    let mail_routes = Router::new()
+        .route("/mailboxes", get(mail::list_mailboxes))
+        .route("/mailboxes/:id/messages", get(mail::list_messages))
+        .route("/mail/send", post(mail::send_email));
 
     let app = Router::new()
         .route("/", get(|| async { "Webmail API is running" }))
         .route("/health", get(health_handler))
         .route("/metrics", get(move || async move { recorder_handle.render() }))
         .route("/ws", get(realtime::ws_handler))
-        .route("/auth/register", post(auth::register_user))
-        .route("/auth/login", post(auth::login_user))
-        .route("/mailboxes", get(mail::list_mailboxes))
-        .route("/mailboxes/:id/messages", get(mail::list_messages))
-        .route("/mail/send", post(mail::send_email))
+        .nest("/auth", auth_routes)
+        .nest("/", mail_routes)
+        .layer(GovernorLayer {
+            config: general_governor_config,
+        })
         .with_state(pool);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

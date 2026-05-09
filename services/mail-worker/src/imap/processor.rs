@@ -47,6 +47,9 @@ pub fn process_raw_message(raw_mime: &[u8]) -> Result<ProcessedMessage, Box<dyn 
 
     extract_parts(&parsed, &mut body_text, &mut body_html, &mut attachments)?;
 
+    // Sanitize HTML
+    let sanitized_html = body_html.map(|html| ammonia::clean(&html));
+
     Ok(ProcessedMessage {
         message_id,
         in_reply_to,
@@ -55,7 +58,7 @@ pub fn process_raw_message(raw_mime: &[u8]) -> Result<ProcessedMessage, Box<dyn 
         from,
         to,
         body_text,
-        body_html,
+        body_html: sanitized_html,
         attachments,
     })
 }
