@@ -1,3 +1,5 @@
+pub mod processor;
+
 use async_imap::Session;
 use async_native_tls::TlsStream;
 use async_std::net::TcpStream;
@@ -37,4 +39,29 @@ pub async fn sync_mailboxes(session: &mut ImapSession) -> Result<Vec<String>, Bo
     }
     
     Ok(folder_names)
+}
+
+pub async fn fetch_new_messages(
+    session: &mut ImapSession,
+    mailbox: &str,
+    last_uid: Option<u32>,
+) -> Result<Vec<(u32, Vec<u8>)>, Box<dyn Error>> {
+    session.examine(mailbox).await?;
+    
+    let query = match last_uid {
+        Some(uid) => format!("{}:*", uid + 1),
+        None => "1:*".to_string(),
+    };
+
+    let mut fetch_stream = session.uid_fetch(query, "RFC822").await?;
+    let mut messages = Vec::new();
+
+    while let Some(msg) = fetch_stream.next().await {
+        let msg = msg?;
+        let uid = msg.uid.ok_or("No UID for message")?;
+        let body = msg.body().ok_or("No body for message")?.to_vec();
+        messages.push((uid, body));
+    }
+
+    Ok(messages)
 }
