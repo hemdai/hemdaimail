@@ -1,9 +1,8 @@
-use mailparse::{parse_mail, ParsedMail, MailHeader, MailHeaderMap};
+use mailparse::{parse_mail, ParsedMail, MailHeaderMap};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::error::Error;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProcessedMessage {
     pub message_id: Option<String>,
     pub in_reply_to: Option<String>,
@@ -16,7 +15,7 @@ pub struct ProcessedMessage {
     pub attachments: Vec<ProcessedAttachment>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProcessedAttachment {
     pub filename: String,
     pub content_type: String,
