@@ -12,4 +12,5 @@ pub struct SyncTask {
     pub user_id: Uuid,
     pub mailbox_name: String,
     pub sync_type: SyncType,
+    pub correlation_id: Option<String>,
 }

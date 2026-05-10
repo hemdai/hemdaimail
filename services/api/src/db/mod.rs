@@ -1,3 +1,5 @@
+pub mod audit;
+
 use sqlx::postgres::PgPool;
 use std::env;
 

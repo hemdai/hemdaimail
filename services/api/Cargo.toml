@@ -16,7 +16,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = "9.2"
 argon2 = "0.5"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "util"] }
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "serde", "smtp-transport", "builder", "hostname"] }
 redis = { version = "0.24", features = ["tokio-comp"] }
 futures-util = "0.3"

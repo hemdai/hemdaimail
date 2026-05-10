@@ -54,8 +54,12 @@ where
     }
 }
 
+use crate::db::audit;
+use axum::http::HeaderMap;
+
 pub async fn register_user(
     State(pool): State<PgPool>,
+    headers: HeaderMap,
     Json(payload): Json<RegisterRequest>,
 ) -> impl IntoResponse {
     let domain = sqlx::query!(
@@ -77,16 +81,28 @@ pub async fn register_user(
         .to_string();
 
     let result = sqlx::query!(
-        "INSERT INTO users (email, password_hash, domain_id) VALUES ($1, $2, $3)",
+        "INSERT INTO users (email, password_hash, domain_id) VALUES ($1, $2, $3) RETURNING id",
         payload.email,
         password_hash,
         domain_id
     )
-    .execute(&pool)
+    .fetch_one(&pool)
     .await;
 
     match result {
-        Ok(_) => StatusCode::CREATED.into_response(),
+        Ok(user) => {
+            audit::log_event(
+                &pool,
+                Some(user.id),
+                "user_registered",
+                "user",
+                Some(&user.id.to_string()),
+                None,
+                headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()),
+                headers.get("user-agent").and_then(|v| v.to_str().ok()),
+            ).await;
+            StatusCode::CREATED.into_response()
+        },
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
@@ -94,6 +110,7 @@ pub async fn register_user(
 pub async fn login_user(
     State(pool): State<PgPool>,
     jar: CookieJar,
+    headers: HeaderMap,
     Json(payload): Json<LoginRequest>,
 ) -> impl IntoResponse {
     let user = sqlx::query_as!(
@@ -112,8 +129,29 @@ pub async fn login_user(
 
     let parsed_hash = PasswordHash::new(&user.password_hash).expect("Invalid password hash in DB");
     if Argon2::default().verify_password(payload.password.as_bytes(), &parsed_hash).is_err() {
+        audit::log_event(
+            &pool,
+            Some(user.id),
+            "login_failed",
+            "user",
+            Some(&user.id.to_string()),
+            None,
+            headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()),
+            headers.get("user-agent").and_then(|v| v.to_str().ok()),
+        ).await;
         return (StatusCode::UNAUTHORIZED, jar, "Invalid credentials").into_response();
     }
+
+    audit::log_event(
+        &pool,
+        Some(user.id),
+        "user_logged_in",
+        "user",
+        Some(&user.id.to_string()),
+        None,
+        headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()),
+        headers.get("user-agent").and_then(|v| v.to_str().ok()),
+    ).await;
 
     let access_token = generate_access_token(user.id, &user.email);
     let refresh_token = generate_refresh_token();

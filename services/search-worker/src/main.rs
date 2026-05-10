@@ -11,6 +11,8 @@ use std::error::Error;
 use axum::{routing::get, Router};
 use std::net::SocketAddr;
 use metrics_exporter_prometheus::PrometheusBuilder;
+use tracing::{info, error, Instrument};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -32,7 +34,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         axum::serve(listener, health_router).await.unwrap();
     });
 
-    tracing::info!("Search worker starting...");
+    info!("Search worker starting...");
 
     let meili_url = env::var("MEILI_URL").expect("MEILI_URL must be set");
     let meili_key = env::var("MEILI_MASTER_KEY").expect("MEILI_MASTER_KEY must be set");
@@ -56,9 +58,20 @@ async fn run_worker_loop(meili: Client, redis: RedisClient) -> Result<(), Box<dy
         match result {
             Some(json) => {
                 let task: IndexingTask = serde_json::from_str(&json)?;
-                tracing::info!("Indexing message {}", task.message_id);
+                let correlation_id = task.correlation_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+                
+                let span = tracing::info_span!("process_indexing_task",
+                    message_id = %task.message_id,
+                    user_id = %task.user_id,
+                    correlation_id = %correlation_id
+                );
 
-                index.add_documents(&[task], Some("message_id")).await?;
+                async {
+                    info!("Indexing message {}", task.message_id);
+                    if let Err(e) = index.add_documents(&[task], Some("message_id")).await {
+                        error!("Failed to index message: {}", e);
+                    }
+                }.instrument(span).await;
             }
             None => {
                 sleep(Duration::from_secs(5)).await;

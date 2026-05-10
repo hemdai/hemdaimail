@@ -20,6 +20,7 @@ use chrono::Utc;
 use axum::{routing::get, Router};
 use std::net::SocketAddr;
 use metrics_exporter_prometheus::PrometheusBuilder;
+use tracing::{info, error, warn, debug, Instrument};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -41,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         axum::serve(listener, health_router).await.unwrap();
     });
 
-    tracing::info!("Mail worker starting...");
+    info!("Mail worker starting...");
 
     let pool = db::connect_db().await;
     
@@ -59,24 +60,32 @@ async fn run_worker_loop(pool: PgPool, queue: Queue, storage: Storage) -> Result
     loop {
         match queue.pop_sync_task() {
             Ok(Some(task)) => {
-                tracing::info!("Processing sync task for user {}", task.user_id);
-                if let Err(e) = sync_user_mail(&pool, &storage, &queue, task.user_id).await {
-                    tracing::error!("Failed to sync user {}: {}", task.user_id, e);
-                }
+                let correlation_id = task.correlation_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+                let span = tracing::info_span!("process_sync_task", 
+                    user_id = %task.user_id,
+                    correlation_id = %correlation_id
+                );
+
+                async {
+                    info!("Processing sync task for user {}", task.user_id);
+                    if let Err(e) = sync_user_mail(&pool, &storage, &queue, task.user_id, &correlation_id).await {
+                        error!("Failed to sync user {}: {}", task.user_id, e);
+                    }
+                }.instrument(span).await;
             }
             Ok(None) => {
                 sleep(Duration::from_secs(5)).await;
             }
             Err(e) => {
-                tracing::error!("Queue error: {}", e);
+                error!("Queue error: {}", e);
                 sleep(Duration::from_secs(10)).await;
             }
         }
     }
 }
 
-async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id: Uuid) -> Result<(), Box<dyn Error>> {
-    tracing::info!("Syncing mail for user {}", user_id);
+async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id: Uuid, correlation_id: &str) -> Result<(), Box<dyn Error>> {
+    info!("Syncing mail for user {}", user_id);
 
     let creds = sqlx::query!(
         "SELECT host, port, username, password_encrypted FROM user_imap_credentials WHERE user_id = $1",
@@ -88,7 +97,7 @@ async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id
     let creds = match creds {
         Some(c) => c,
         None => {
-            tracing::warn!("No IMAP credentials for user {}", user_id);
+            warn!("No IMAP credentials for user {}", user_id);
             return Ok(());
         }
     };
@@ -136,6 +145,7 @@ async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id
                 sender: processed.from.clone().unwrap_or_default(),
                 body_text: processed.body_text.clone(),
                 created_at: Utc::now().to_rfc3339(),
+                correlation_id: Some(correlation_id.to_string()),
             })?;
 
             // Publish Real-time Event
@@ -144,6 +154,7 @@ async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id
                 "subject": processed.subject,
                 "sender": processed.from,
                 "snippet": processed.body_text.as_ref().map(|b| b.chars().take(100).collect::<String>()),
+                "correlation_id": correlation_id
             }))?;
 
             sqlx::query!(

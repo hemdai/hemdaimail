@@ -9,4 +9,5 @@ pub struct IndexingTask {
     pub sender: String,
     pub body_text: Option<String>,
     pub created_at: String,
+    pub correlation_id: Option<String>,
 }

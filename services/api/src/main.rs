@@ -4,16 +4,33 @@ mod mail;
 mod realtime;
 mod observability;
 
-use axum::{routing::{get, post}, Router};
+use axum::{routing::{get, post}, Router, http::header::HeaderName};
 use std::net::SocketAddr;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use std::sync::Arc;
+use tower_http::{
+    request_id::{MakeRequestId, RequestId, PropagateRequestIdLayer, SetRequestIdLayer},
+    trace::TraceLayer,
+};
+use uuid::Uuid;
+
+#[derive(Clone, Copy)]
+struct MyMakeRequestId;
+
+impl MakeRequestId for MyMakeRequestId {
+    fn make_request_id<B>(&mut self, _request: &axum::http::Request<B>) -> Option<RequestId> {
+        let request_id = Uuid::new_v4().to_string().parse().unwrap();
+        Some(RequestId::new(request_id))
+    }
+}
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
     observability::init_observability("api-service");
+
+    let x_request_id = HeaderName::from_static("x-request-id");
 
     let recorder_handle = PrometheusBuilder::new()
         .install_recorder()
@@ -61,6 +78,9 @@ async fn main() {
         .layer(GovernorLayer {
             config: general_governor_config,
         })
+        .layer(TraceLayer::new_for_http())
+        .layer(PropagateRequestIdLayer::new(x_request_id.clone()))
+        .layer(SetRequestIdLayer::new(x_request_id, MyMakeRequestId))
         .with_state(pool);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

@@ -4,11 +4,12 @@ use axum::{
     extract::{State, Path, Query},
     Json,
     response::IntoResponse,
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
 };
 use sqlx::PgPool;
 use models::{Mailbox, Message, SendEmailRequest};
 use crate::auth::models::Claims;
+use crate::db::audit;
 use serde::Deserialize;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message as LettreMessage, SmtpTransport, Transport};
@@ -73,6 +74,7 @@ pub async fn list_messages(
 pub async fn send_email(
     State(pool): State<PgPool>,
     claims: Claims,
+    headers: HeaderMap,
     Json(payload): Json<SendEmailRequest>,
 ) -> impl IntoResponse {
     // 1. Prepare Email
@@ -125,7 +127,7 @@ pub async fn send_email(
             // Save message record
             let recipients: Vec<String> = payload.to.clone();
             let result = sqlx::query!(
-                "INSERT INTO messages (user_id, mailbox_id, sender, recipients, subject, body_text, is_read) VALUES ($1, $2, $3, $4, $5, $6, TRUE)",
+                "INSERT INTO messages (user_id, mailbox_id, sender, recipients, subject, body_text, is_read) VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id",
                 claims.sub,
                 mailbox_id,
                 claims.email,
@@ -133,11 +135,23 @@ pub async fn send_email(
                 payload.subject,
                 payload.body
             )
-            .execute(&pool)
+            .fetch_one(&pool)
             .await;
 
             match result {
-                Ok(_) => StatusCode::OK.into_response(),
+                Ok(msg) => {
+                    audit::log_event(
+                        &pool,
+                        Some(claims.sub),
+                        "email_sent",
+                        "message",
+                        Some(&msg.id.to_string()),
+                        None,
+                        headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()),
+                        headers.get("user-agent").and_then(|v| v.to_str().ok()),
+                    ).await;
+                    StatusCode::OK.into_response()
+                },
                 Err(e) => {
                     tracing::error!("Failed to save sent message: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR.into_response()
