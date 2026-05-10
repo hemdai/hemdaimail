@@ -5,7 +5,6 @@ pub mod realtime;
 pub mod observability;
 
 use axum::{routing::{get, post}, Router, http::header::HeaderName, response::IntoResponse};
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use std::sync::Arc;
 use tower_http::{
     request_id::{MakeRequestId, RequestId, PropagateRequestIdLayer, SetRequestIdLayer},
@@ -27,30 +26,10 @@ impl MakeRequestId for MyMakeRequestId {
 pub async fn app(pool: PgPool) -> Router {
     let x_request_id = HeaderName::from_static("x-request-id");
 
-    // Rate Limiting Config
-    let general_governor_config = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(10)
-            .burst_size(20)
-            .finish()
-            .unwrap(),
-    );
-
-    let auth_governor_config = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(1)
-            .burst_size(5)
-            .finish()
-            .unwrap(),
-    );
-
     let auth_routes = Router::new()
         .route("/register", post(auth::register_user))
         .route("/login", post(auth::login_user))
-        .route("/refresh", post(auth::refresh_token))
-        .layer(GovernorLayer {
-            config: auth_governor_config,
-        });
+        .route("/refresh", post(auth::refresh_token));
 
     let mail_routes = Router::new()
         .route("/mailboxes", get(mail::list_mailboxes))
@@ -63,9 +42,6 @@ pub async fn app(pool: PgPool) -> Router {
         .route("/ws", get(realtime::ws_handler))
         .nest("/auth", auth_routes)
         .nest("/", mail_routes)
-        .layer(GovernorLayer {
-            config: general_governor_config,
-        })
         .layer(TraceLayer::new_for_http())
         .layer(PropagateRequestIdLayer::new(x_request_id.clone()))
         .layer(SetRequestIdLayer::new(x_request_id, MyMakeRequestId))

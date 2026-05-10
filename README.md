@@ -74,6 +74,15 @@ Hemdaimail follows a **Modular Monolith** architecture in Rust, designed to scal
     npm run dev
     ```
 
+### 🔗 Service Ports (Local)
+
+- **Frontend:** `http://localhost:3000`
+- **API Gateway:** `http://localhost:4000`
+- **Mail Worker (Health/Metrics):** `http://localhost:3001`
+- **Search Worker (Health/Metrics):** `http://localhost:3002`
+- **Meilisearch:** `http://localhost:7700`
+- **MinIO Console:** `http://localhost:9001`
+
 ## 📄 Documentation
 
 - [Detailed Architecture](./docs/architecture.md)

@@ -9,7 +9,7 @@ export function useWebSocket() {
   useEffect(() => {
     if (!token) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3000/ws";
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:4000/ws";
     // Axum doesn't natively support subprotocols for auth easily in the extractor,
     // but we can pass it as a query param or in the header if the browser allowed it.
     // For simplicity, we'll use query param for the JWT in the handshake.

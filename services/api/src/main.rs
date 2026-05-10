@@ -17,7 +17,7 @@ async fn main() {
     let router = app(pool).await;
     let final_router = router.route("/metrics", get(move || async move { recorder_handle.render() }));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 4000));
     tracing::info!("listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, final_router).await.unwrap();
