@@ -86,7 +86,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 🛡 Security
 
-If you discover a security vulnerability, please send an e-mail to security@hemdaimail.org.
+If you discover a security vulnerability, please let me know.
 
 ## ⚖️ License
 
