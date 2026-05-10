@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hemdaimail-config
+data:
+  SMTP_HOST: "smtp.example.com"
+  S3_BUCKET: "mail-blobs"
+  S3_REGION: "us-east-1"
+  MEILI_URL: "http://meilisearch:7700"
+  REDIS_URL: "redis://redis:6379"
+  DATABASE_URL: "postgres://postgres:password@postgres:5432/webmail"
+  OTLP_ENDPOINT: "http://otel-collector:4317"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hemdaimail-secrets
+type: Opaque
+stringData:
+  JWT_SECRET: "placeholder-replace-in-prod"
+  MEILI_MASTER_KEY: "masterKey"
+  SMTP_USER: "user"
+  SMTP_PASS: "pass"
