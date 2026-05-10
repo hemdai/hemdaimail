@@ -58,33 +58,47 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn run_worker_loop(pool: PgPool, queue: Queue, storage: Storage) -> Result<(), Box<dyn Error>> {
     loop {
-        match queue.pop_sync_task() {
-            Ok(Some(task)) => {
-                let correlation_id = task.correlation_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
-                let span = tracing::info_span!("process_sync_task", 
-                    user_id = %task.user_id,
-                    correlation_id = %correlation_id
-                );
+        // Use Redis client directly to pop and get JSON for DLQ support
+        let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set");
+        let client = redis::Client::open(redis_url)?;
+        let mut conn = client.get_connection()?;
+        
+        let result: Option<String> = redis::Commands::rpop(&mut conn, "mail_sync_tasks", None)?;
+        
+        match result {
+            Some(json) => {
+                match serde_json::from_str::<crate::models::tasks::SyncTask>(&json) {
+                    Ok(task) => {
+                        let correlation_id = task.correlation_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+                        let span = tracing::info_span!("process_sync_task", 
+                            user_id = %task.user_id,
+                            correlation_id = %correlation_id
+                        );
 
-                async {
-                    info!("Processing sync task for user {}", task.user_id);
-                    if let Err(e) = sync_user_mail(&pool, &storage, &queue, task.user_id, &correlation_id).await {
-                        error!("Failed to sync user {}: {}", task.user_id, e);
+                        async {
+                            info!("Processing sync task for user {}", task.user_id);
+                            if let Err(e) = sync_user_mail(&pool, &storage, &queue, task.user_id, &correlation_id).await {
+                                error!("Failed to sync user {}: {}", task.user_id, e);
+                                // Move to DLQ on failure
+                                let _ = queue.move_to_dlq("mail_sync_tasks", &json, &e.to_string());
+                            }
+                        }.instrument(span).await;
                     }
-                }.instrument(span).await;
+                    Err(e) => {
+                        error!("Failed to parse sync task: {}", e);
+                        let _ = queue.move_to_dlq("mail_sync_tasks", &json, &e.to_string());
+                    }
+                }
             }
-            Ok(None) => {
+            None => {
                 sleep(Duration::from_secs(5)).await;
-            }
-            Err(e) => {
-                error!("Queue error: {}", e);
-                sleep(Duration::from_secs(10)).await;
             }
         }
     }
 }
 
 async fn sync_user_mail(pool: &PgPool, storage: &Storage, queue: &Queue, user_id: Uuid, correlation_id: &str) -> Result<(), Box<dyn Error>> {
+    // Simple Circuit Breaker logic could be added here (e.g. check a failure counter in Redis)
     info!("Syncing mail for user {}", user_id);
 
     let creds = sqlx::query!(

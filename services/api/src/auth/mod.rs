@@ -18,6 +18,8 @@ use uuid::Uuid;
 use std::env;
 use chrono::{Utc, Duration};
 use rand::{distributions::Alphanumeric, Rng};
+use crate::db::audit;
+use axum::http::HeaderMap;
 
 #[async_trait]
 impl<S> FromRequestParts<S> for Claims
@@ -53,9 +55,6 @@ where
         Ok(token_data.claims)
     }
 }
-
-use crate::db::audit;
-use axum::http::HeaderMap;
 
 pub async fn register_user(
     State(pool): State<PgPool>,

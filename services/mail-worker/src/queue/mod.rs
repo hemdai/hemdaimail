@@ -62,4 +62,16 @@ impl Queue {
         let _: () = conn.publish(channel, event.to_string())?;
         Ok(())
     }
+
+    pub fn move_to_dlq(&self, queue_name: &str, task_json: &str, error: &str) -> Result<(), Box<dyn Error>> {
+        let mut conn = self.client.get_connection()?;
+        let dlq_name = format!("{}:dlq", queue_name);
+        let dlq_entry = serde_json::json!({
+            "task": task_json,
+            "error": error,
+            "failed_at": chrono::Utc::now().to_rfc3339()
+        });
+        let _: () = conn.lpush(dlq_name, dlq_entry.to_string())?;
+        Ok(())
+    }
 }
