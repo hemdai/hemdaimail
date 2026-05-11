@@ -41,38 +41,31 @@ Hemdaimail follows a **Modular Monolith** architecture in Rust, designed to scal
 
 ### Quick Start (Local Development)
 
+The easiest way to run the entire stack is using Docker Compose:
+
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/hemdai/hemdaimail.git
     cd hemdaimail
     ```
 
-2.  **Start the infrastructure:**
+2.  **Start everything:**
     ```bash
-    docker compose -f infrastructure/docker/docker-compose.yml up -d
+    docker compose -f infrastructure/docker/docker-compose.yml up --build -d
     ```
+    *This will build and start the API, workers, and frontend along with all required infrastructure.*
 
-3.  **Run migrations:**
+3.  **Run migrations (once containers are up):**
     ```bash
-    cd services/api
+    # You can run this from your host if you have sqlx-cli installed:
+    export DATABASE_URL=postgres://postgres:password@localhost:5432/webmail
     sqlx database create
     sqlx migrate run
     ```
 
-4.  **Launch the backend services:**
-    ```bash
-    # In separate terminals:
-    cargo run --bin api
-    cargo run --bin mail-worker
-    cargo run --bin search-worker
-    ```
-
-5.  **Start the frontend:**
-    ```bash
-    cd apps/web
-    npm install
-    npm run dev
-    ```
+4.  **Access the application:**
+    - **Frontend:** `http://localhost:3000`
+    - **API Gateway:** `http://localhost:4000`
 
 ### 🔗 Service Ports (Local)
 
