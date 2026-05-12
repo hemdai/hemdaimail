@@ -4,7 +4,8 @@ FROM rust:1.95-slim-bookworm AS builder
 WORKDIR /usr/src/api
 
 # Copy manifests and sqlx data
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
+COPY Cargo.lock* ./
 COPY .sqlx* ./.sqlx/
 
 # Pre-build dependencies

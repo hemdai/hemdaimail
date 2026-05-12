@@ -4,7 +4,8 @@ FROM rust:1.95-slim-bookworm AS builder
 WORKDIR /usr/src/mail-worker
 
 # Copy manifests first to cache dependency downloads
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
+COPY Cargo.lock* ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
 
 # Copy the actual source code
