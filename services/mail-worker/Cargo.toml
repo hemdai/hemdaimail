@@ -20,3 +20,11 @@ async-native-tls = "0.5"
 mailparse = "0.14"
 
 ammonia = "3.3"
+axum = "0.7"
+opentelemetry = { version = "0.21", features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.14", features = ["tonic", "tokio"] }
+tracing-opentelemetry = "0.22"
+tonic = "0.10"
+metrics = "0.22"
+metrics-exporter-prometheus = "0.12"
