@@ -5,12 +5,9 @@ use axum::{
     },
     response::IntoResponse,
 };
-use futures_util::{sink::SinkExt, stream::StreamExt};
-use redis::AsyncCommands;
-use std::sync::Arc;
-use crate::auth::models::Claims;
-use crate::db;
+use futures_util::{StreamExt, SinkExt};
 use sqlx::PgPool;
+use crate::auth::models::Claims;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
