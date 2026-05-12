@@ -2,11 +2,20 @@
 FROM rust:1.95-slim-bookworm AS builder
 
 WORKDIR /usr/src/search-worker
-COPY . .
 
-# Build for release
+# Install build dependencies
 RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
-RUN cargo build --release
+
+# Copy manifests
+COPY Cargo.toml ./
+COPY Cargo.lock* ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
+
+# Copy the actual source code
+COPY src ./src
+
+# Build the real binary
+RUN rm src/main.rs && cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim

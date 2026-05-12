@@ -3,6 +3,9 @@ FROM rust:1.95-slim-bookworm AS builder
 
 WORKDIR /usr/src/mail-worker
 
+# Install build dependencies
+RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
+
 # Copy manifests first to cache dependency downloads
 COPY Cargo.toml ./
 COPY Cargo.lock* ./
