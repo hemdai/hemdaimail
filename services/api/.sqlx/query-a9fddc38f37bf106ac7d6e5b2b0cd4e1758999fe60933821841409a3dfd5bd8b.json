@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, user_id, name, type as \"type: _\", created_at FROM mailboxes WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "type: _",
+        "type_info": {
+          "Custom": {
+            "name": "mailbox_type",
+            "kind": {
+              "Enum": [
+                "inbox",
+                "sent",
+                "drafts",
+                "trash",
+                "spam",
+                "archive",
+                "custom"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a9fddc38f37bf106ac7d6e5b2b0cd4e1758999fe60933821841409a3dfd5bd8b"
+}

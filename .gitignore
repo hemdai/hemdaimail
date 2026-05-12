@@ -23,7 +23,6 @@ build/
 # Project Specific
 agents/
 plans/
-.sqlx/
 
 # OS
 .DS_Store

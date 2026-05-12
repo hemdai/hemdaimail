@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/li
 
 # Copy manifests and sqlx data
 COPY Cargo.toml Cargo.lock* ./
-COPY .sqlx ./.sqlx/
+COPY .sqlx* ./.sqlx/
 
 # Pre-build dependencies
 RUN mkdir src && echo "fn main() { panic!(\"dummy binary\"); }" > src/main.rs && \
