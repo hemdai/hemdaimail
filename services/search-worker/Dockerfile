@@ -11,11 +11,11 @@ COPY Cargo.toml ./
 COPY Cargo.lock* ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
 
-# Copy the actual source code
+# Copy the actual source code (this overwrites the dummy main.rs)
 COPY src ./src
 
 # Build the real binary
-RUN rm src/main.rs && cargo build --release
+RUN cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
