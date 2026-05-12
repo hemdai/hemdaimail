@@ -11,13 +11,13 @@ COPY Cargo.toml ./
 COPY Cargo.lock* ./
 COPY .sqlx* ./.sqlx/
 
-# Pre-build dependencies
+# Pre-build dependencies with limited parallelism to save memory
 RUN mkdir src && echo "fn main() {}" > src/main.rs && \
-    SQLX_OFFLINE=true cargo build --release
+    SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
 
-# Copy the actual source and build
+# Copy the actual source and build with limited parallelism
 COPY . .
-RUN SQLX_OFFLINE=true cargo build --verbose --release
+RUN rm src/main.rs && SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim

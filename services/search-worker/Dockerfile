@@ -9,13 +9,14 @@ RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/li
 # Copy manifests
 COPY Cargo.toml ./
 COPY Cargo.lock* ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
+RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+    CARGO_BUILD_JOBS=1 cargo build --release
 
 # Copy the actual source code (this overwrites the dummy main.rs)
 COPY src ./src
 
 # Build the real binary
-RUN cargo build --release
+RUN rm src/main.rs && CARGO_BUILD_JOBS=1 cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim

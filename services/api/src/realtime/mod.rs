@@ -6,8 +6,8 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::{StreamExt, SinkExt};
-use sqlx::PgPool;
 use crate::auth::models::Claims;
+use sqlx::PgPool;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -20,7 +20,7 @@ pub async fn ws_handler(
 async fn handle_socket(mut socket: WebSocket, claims: Claims, _pool: PgPool) {
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL must be set");
     let client = redis::Client::open(redis_url).expect("Invalid Redis URL");
-    let mut conn = client.get_async_connection().await.expect("Failed to connect to Redis");
+    let conn = client.get_async_connection().await.expect("Failed to connect to Redis");
     let mut pubsub_conn = conn.into_pubsub();
 
     let channel = format!("user_events:{}", claims.sub);

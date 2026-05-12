@@ -5,7 +5,6 @@ pub mod realtime;
 pub mod observability;
 
 use axum::{routing::{get, post}, Router, http::header::HeaderName, response::IntoResponse};
-use std::sync::Arc;
 use tower_http::{
     request_id::{MakeRequestId, RequestId, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
@@ -49,7 +48,7 @@ pub async fn app(pool: PgPool) -> Router {
 }
 
 async fn health_handler(
-    axum::extract::State(pool): axum::extract::State<PgPool>,
+    axum::extract::State(pool): axum::extract::State<sqlx::PgPool>,
 ) -> impl IntoResponse {
     match sqlx::query("SELECT 1").execute(&pool).await {
         Ok(_) => (axum::http::StatusCode::OK, "OK"),
