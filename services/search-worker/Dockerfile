@@ -16,7 +16,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && \
 COPY src ./src
 
 # Build the real binary
-RUN rm src/main.rs && CARGO_BUILD_JOBS=1 cargo build --release
+RUN CARGO_BUILD_JOBS=1 cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim

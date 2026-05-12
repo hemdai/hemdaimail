@@ -17,7 +17,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && \
 
 # Copy the actual source and build with limited parallelism
 COPY . .
-RUN rm src/main.rs && SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
+RUN SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
