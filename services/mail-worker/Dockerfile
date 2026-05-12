@@ -9,6 +9,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
 
 # Copy the actual source code
 COPY src ./src
+RUN mkdir -p migrations
 COPY migrations ./migrations
 
 # Build the real binary
