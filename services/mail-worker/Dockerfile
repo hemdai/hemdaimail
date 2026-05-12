@@ -2,12 +2,17 @@
 FROM rust:1.95-slim-bookworm AS builder
 
 WORKDIR /usr/src/mail-worker
-COPY . .
 
-# Build for release
-RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
-ENV SQLX_OFFLINE=true
-RUN cargo build --release
+# Copy manifests first to cache dependency downloads
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
+
+# Copy the actual source code
+COPY src ./src
+COPY migrations ./migrations
+
+# Build the real binary
+RUN rm src/main.rs && cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim

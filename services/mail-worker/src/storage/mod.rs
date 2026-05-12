@@ -1,31 +1,21 @@
-use aws_sdk_s3::Client;
-use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::config::Region;
 use std::error::Error;
 use std::env;
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+use std::path::PathBuf;
 
 pub struct Storage {
-    client: Client,
-    bucket: String,
+    base_path: PathBuf,
 }
 
 impl Storage {
     pub async fn new() -> Self {
-        let endpoint_url = env::var("S3_ENDPOINT").ok();
-        let region = env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".to_string());
-        let bucket = env::var("S3_BUCKET").expect("S3_BUCKET must be set");
-
-        let mut config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .region(Region::new(region));
-
-        if let Some(url) = endpoint_url {
-            config_loader = config_loader.endpoint_url(url);
+        let path = env::var("STORAGE_PATH").unwrap_or_else(|_| "./data".to_string());
+        let base_path = PathBuf::from(path);
+        if let Err(e) = fs::create_dir_all(&base_path).await {
+             eprintln!("Warning: could not create storage dir: {}", e);
         }
-
-        let config = config_loader.load().await;
-        let client = Client::new(&config);
-        
-        Storage { client, bucket }
+        Storage { base_path }
     }
 
     pub async fn upload_attachment(
@@ -34,17 +24,12 @@ impl Storage {
         filename: &str,
         content: Vec<u8>,
     ) -> Result<String, Box<dyn Error>> {
-        let key = format!("attachments/{}/{}", message_id, filename);
-        
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(&key)
-            .body(ByteStream::from(content))
-            .send()
-            .await?;
-
-        Ok(key)
+        let dir = self.base_path.join(format!("attachments/{}", message_id));
+        fs::create_dir_all(&dir).await?;
+        let path = dir.join(filename);
+        let mut file = fs::File::create(&path).await?;
+        file.write_all(&content).await?;
+        Ok(path.to_string_lossy().to_string())
     }
 
     pub async fn upload_raw_mime(
@@ -52,16 +37,11 @@ impl Storage {
         message_id: &str,
         content: Vec<u8>,
     ) -> Result<String, Box<dyn Error>> {
-        let key = format!("raw/{}.eml", message_id);
-        
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(&key)
-            .body(ByteStream::from(content))
-            .send()
-            .await?;
-
-        Ok(key)
+        let dir = self.base_path.join("raw");
+        fs::create_dir_all(&dir).await?;
+        let path = dir.join(format!("{}.eml", message_id));
+        let mut file = fs::File::create(&path).await?;
+        file.write_all(&content).await?;
+        Ok(path.to_string_lossy().to_string())
     }
 }

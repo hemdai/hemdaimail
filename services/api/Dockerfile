@@ -2,12 +2,19 @@
 FROM rust:1.95-slim-bookworm AS builder
 
 WORKDIR /usr/src/api
-COPY . .
 
-# Build for release
+# Copy manifests and sqlx data
+COPY Cargo.toml Cargo.lock ./
+COPY .sqlx ./.sqlx/
+
+# Pre-build dependencies
 RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
-ENV SQLX_OFFLINE=true
-RUN cargo build --release
+RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+    SQLX_OFFLINE=true cargo build --release
+
+# Copy the actual source and build
+COPY . .
+RUN rm src/main.rs && SQLX_OFFLINE=true cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
@@ -21,10 +28,9 @@ USER appuser
 WORKDIR /app
 COPY --from=builder /usr/src/api/target/release/api /app/api
 COPY --from=builder /usr/src/api/migrations /app/migrations
-COPY --from=builder /usr/src/api/.sqlx /app/.sqlx
 
 # Set production envs
 ENV RUST_LOG=info
-EXPOSE 3000
+EXPOSE 4000
 
 CMD ["./api"]
