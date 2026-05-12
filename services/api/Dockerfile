@@ -5,7 +5,7 @@ WORKDIR /usr/src/api
 
 # Copy manifests and sqlx data
 COPY Cargo.toml Cargo.lock ./
-COPY .sqlx ./.sqlx/
+COPY .sqlx* ./.sqlx/
 
 # Pre-build dependencies
 RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
