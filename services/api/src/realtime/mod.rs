@@ -5,7 +5,7 @@ use axum::{
     },
     response::IntoResponse,
 };
-use futures_util::{StreamExt, SinkExt};
+use futures_util::StreamExt;
 use crate::auth::models::Claims;
 use sqlx::PgPool;
 
