@@ -7,16 +7,21 @@ WORKDIR /usr/src/api
 RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests and sqlx data
-COPY Cargo.toml ./
-COPY Cargo.lock* ./
-COPY .sqlx* ./.sqlx/
+COPY Cargo.toml Cargo.lock* ./
+COPY .sqlx ./.sqlx/
 
-# Pre-build dependencies with limited parallelism to save memory
-RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+# Pre-build dependencies with limited parallelism
+# We use a dummy file and then overwrite it
+RUN mkdir src && echo "fn main() { panic!(\"dummy binary\"); }" > src/main.rs && \
     SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
 
-# Copy the actual source and build with limited parallelism
-COPY . .
+# Copy the actual source code
+# This COPY command MUST overwrite the dummy src/main.rs
+COPY src ./src
+COPY migrations ./migrations
+
+# Build the real binary
+# NO 'rm src/main.rs' here!
 RUN SQLX_OFFLINE=true CARGO_BUILD_JOBS=1 cargo build --release
 
 # Stage 2: Runtime
