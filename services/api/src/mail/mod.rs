@@ -7,7 +7,7 @@ use axum::{
     http::{StatusCode, HeaderMap},
 };
 use sqlx::PgPool;
-use models::SendEmailRequest;
+use models::{Mailbox, Message, SendEmailRequest};
 use crate::auth::models::Claims;
 use crate::db::audit;
 use serde::Deserialize;
