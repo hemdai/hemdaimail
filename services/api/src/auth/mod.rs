@@ -8,7 +8,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use sqlx::PgPool;
-use models::{RegisterRequest, LoginRequest, AuthResponse, Claims};
+use models::{User, RegisterRequest, LoginRequest, AuthResponse, Claims};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
