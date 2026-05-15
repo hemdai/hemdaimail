@@ -1,38 +1,33 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Square, CheckSquare, MoreVertical, RefreshCcw, ChevronLeft, ChevronRight, Bell, MailOpen, Mail } from "lucide-react";
+import { Star, Square, CheckSquare, MoreVertical, RefreshCcw, ChevronLeft, ChevronRight, MailOpen, Send } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { useWebSocket } from "@/lib/use-websocket";
 import { api } from "@/lib/api";
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
-export default function InboxPage() {
+export default function SentPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
-  const [notification, setNotification] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { lastEvent } = useWebSocket();
 
   const fetchMessages = async () => {
     setIsLoading(true);
     try {
-      // 1. Get mailboxes
       const mailboxes = await api.mail.listMailboxes();
-      const inbox = mailboxes.find((m: any) => m.name.toLowerCase() === "inbox");
+      const sent = mailboxes.find((m: any) => m.name.toLowerCase() === "sent");
       
-      if (inbox) {
-        // 2. Get messages for inbox
-        const data = await api.mail.listMessages(inbox.id);
+      if (sent) {
+        const data = await api.mail.listMessages(sent.id);
         setMessages(data);
       }
     } catch (err) {
-      console.error("Failed to fetch messages", err);
+      console.error("Failed to fetch sent messages", err);
     } finally {
       setIsLoading(false);
     }
@@ -41,26 +36,6 @@ export default function InboxPage() {
   useEffect(() => {
     fetchMessages();
   }, []);
-
-  useEffect(() => {
-    if (lastEvent?.type === "NEW_MESSAGE") {
-      const newMsg = lastEvent.payload;
-      setMessages((prev) => [
-        {
-          id: newMsg.id,
-          sender: newMsg.sender || "Unknown",
-          subject: newMsg.subject || "(No Subject)",
-          snippet: newMsg.snippet || "",
-          created_at: new Date().toISOString(),
-          is_read: false,
-          is_starred: false,
-        },
-        ...prev,
-      ]);
-      setNotification(`New message from ${newMsg.sender}`);
-      setTimeout(() => setNotification(null), 5000);
-    }
-  }, [lastEvent]);
 
   const toggleSelect = (id: string) => {
     setSelectedMessages((prev) =>
@@ -89,18 +64,17 @@ export default function InboxPage() {
         <div className="flex-1 overflow-auto p-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+              <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
                 {selectedMessage.sender?.[0]?.toUpperCase()}
               </div>
               <div>
                 <p className="font-bold text-gray-900">{selectedMessage.sender}</p>
-                <p className="text-sm text-gray-500">to me</p>
+                <p className="text-sm text-gray-500">to {selectedMessage.recipients?.join(", ")}</p>
               </div>
             </div>
             <p className="text-sm text-gray-500">{formatDate(selectedMessage.created_at)}</p>
           </div>
-          <div className="prose prose-blue max-w-none text-gray-800 leading-relaxed">
-            {/* In a real app we'd render HTML here securely */}
+          <div className="prose prose-blue max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap">
             {selectedMessage.body_text || selectedMessage.snippet}
           </div>
         </div>
@@ -109,16 +83,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col h-full relative">
-      {/* Toast Notification */}
-      {notification && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
-          <Bell className="w-5 h-5" />
-          <span className="font-medium">{notification}</span>
-        </div>
-      )}
-
-      {/* Inbox Toolbar */}
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200">
         <div className="flex items-center gap-1">
           <button className="p-2 hover:bg-gray-100 rounded-lg">
@@ -144,7 +109,6 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Message List */}
       <div className="flex-1 overflow-auto bg-white">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -152,8 +116,8 @@ export default function InboxPage() {
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <MailOpen className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-xl">Your inbox is empty</p>
+            <Send className="w-16 h-16 mb-4 opacity-20" />
+            <p className="text-xl">No sent messages</p>
           </div>
         ) : (
           <table className="w-full border-collapse">
@@ -163,12 +127,11 @@ export default function InboxPage() {
                   key={msg.id}
                   onClick={() => setSelectedMessage(msg)}
                   className={cn(
-                    "group border-b border-gray-100 cursor-pointer transition-all hover:shadow-sm",
-                    msg.is_read ? "bg-white" : "bg-gray-50 font-bold",
+                    "group border-b border-gray-100 cursor-pointer transition-all hover:shadow-sm bg-white",
                     selectedMessages.includes(msg.id) ? "bg-blue-50" : "hover:bg-gray-50"
                   )}
                 >
-                  <td className="pl-4 py-3 w-12">
+                  <td className="pl-4 py-3 w-12 text-gray-900">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => {
@@ -183,19 +146,10 @@ export default function InboxPage() {
                           <Square className="w-5 h-5" />
                         )}
                       </button>
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn(
-                          "hover:text-yellow-500 transition-colors",
-                          msg.is_starred ? "text-yellow-400" : "text-gray-300"
-                        )}
-                      >
-                        <Star className={cn("w-5 h-5", msg.is_starred && "fill-current")} />
-                      </button>
                     </div>
                   </td>
                   <td className="px-4 py-3 w-64 truncate text-sm text-gray-900">
-                    {msg.sender}
+                    To: {msg.recipients?.[0] || "Unknown"}
                   </td>
                   <td className="px-4 py-3 truncate text-sm">
                     <span className="text-gray-900">{msg.subject || "(No Subject)"}</span>
