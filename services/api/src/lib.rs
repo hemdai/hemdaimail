@@ -4,10 +4,11 @@ pub mod mail;
 pub mod realtime;
 pub mod observability;
 
-use axum::{routing::{get, post}, Router, http::header::HeaderName, response::IntoResponse};
+use axum::{routing::{get, post}, Router, http::header::HeaderName, response::IntoResponse, http::Method};
 use tower_http::{
     request_id::{MakeRequestId, RequestId, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
+    cors::{CorsLayer, Any},
 };
 use uuid::Uuid;
 use sqlx::PgPool;
@@ -25,6 +26,11 @@ impl MakeRequestId for MyMakeRequestId {
 pub async fn app(pool: PgPool) -> Router {
     let x_request_id = HeaderName::from_static("x-request-id");
 
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
+        .allow_origin(Any)
+        .allow_headers(Any);
+
     let auth_routes = Router::new()
         .route("/register", post(auth::register_user))
         .route("/login", post(auth::login_user))
@@ -41,6 +47,7 @@ pub async fn app(pool: PgPool) -> Router {
         .route("/ws", get(realtime::ws_handler))
         .nest("/auth", auth_routes)
         .nest("/", mail_routes)
+        .layer(cors)
         .layer(TraceLayer::new_for_http())
         .layer(PropagateRequestIdLayer::new(x_request_id.clone()))
         .layer(SetRequestIdLayer::new(x_request_id, MyMakeRequestId))
